@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.io as pio   
 
 import pandas as pd
-# pio.kaleido.scope.mathjax = None
+pio.kaleido.scope.mathjax = None
 
 class PlotConfig:
     def __init__(self, plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,

@@ -10,6 +10,7 @@ readme = "README.md"
 python = "^3.9"
 pandas = "^1.5.3"
 dash = "^2.9.2"
+kaleido = "0.2.1"
 
 
 [build-system]

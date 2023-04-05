@@ -61,13 +61,23 @@ app.layout = html.Div(children=[
         children=[
             html.Div(id="output-file-metadata"),
             html.Div([
+                html.Hr(),
                 dcc.Dropdown(id='header-selector-mtx-name', placeholder="Select a Column for Matrix name"),
                 dcc.Dropdown(id='header-selector-x_axis', placeholder="Select a Column for x axis"),
                 dcc.Dropdown(id='header-selector-y_axis', placeholder="Select a Column for y axis"),
                 dcc.Dropdown(id='header-selector-strategy', placeholder="Select a Column for Algorithms"),
                 dcc.Dropdown(id='inp_alg_1', placeholder="Select a Column for Algorithm A"),
                 dcc.Dropdown(id='inp_alg_2', placeholder="Select a Column for Algorithm B"),
-                html.Hr()
+                html.P("Plot Style:"),
+                dcc.Input(id="plot_style_color", value="rgba(0,100,80, 0.75)", placeholder="Color in plot, e.g. #efefef or rgba(0,100,80, 0.75)"),
+                dcc.Input(id="plot_style_font_color", value="#000000", placeholder="Font color. e.g. #efefef or rgba(0,100,80, 0.75)"),
+                dcc.Input(id="plot_style_font_size", value="18", placeholder="Font size. e.g. 18"),
+                dcc.Input(id="plot_style_xaxis_title", value="NNZ", placeholder="xaxis title"),
+                dcc.Input(id="plot_style_yaxis_title", value="FLOPS", placeholder="yaxis title"),
+                dcc.RadioItems(id="plot_style_showlegend", options=[{'label': 'Show legend', 'value': 'yes'}, {'label': 'Hide legend', 'value': 'no'}], value='yes'),
+                dcc.Input(id="plot_style_legend_title", value="Algorithms", placeholder="legend title"),
+                dcc.Input(id="plot_style_width", value="1200", placeholder="Plot width"),
+                dcc.Input(id="plot_style_height", value="600", placeholder="Plot height"),
             ]),
             html.Button(id='submit-button-state', n_clicks=0, children='Submit'), 
             html.Div(id='output-state')
@@ -134,14 +144,28 @@ def set_algorithm_options(selected_csv_col, list_of_contents, list_of_names, lis
               State('header-selector-y_axis', 'value'),
               State('inp_alg_1', 'value'),
               State('inp_alg_2', 'value'),
+              # plot style:
+              State("plot_style_color", 'value'),
+              State("plot_style_font_color", 'value'),
+              State("plot_style_font_size", 'value'),
+              State("plot_style_xaxis_title", 'value'),
+              State("plot_style_yaxis_title", 'value'),
+              State("plot_style_showlegend", 'value'),
+              State("plot_style_legend_title", 'value'),
+              State("plot_style_width", 'value'),
+              State("plot_style_height", 'value'),
             )
-def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, x_axis, y_axis, alg_1, alg_2):
+def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, x_axis, y_axis, alg_1, alg_2,
+    plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,
+    plot_legend_title, plot_width, plot_height):
     if list_of_contents is None:
         print("NONE")
     else:
         # todo: parse multiple input files.
         df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
-        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis)
+        conf_showlegend = True if plot_showlegend == "yes" else False
+        config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
+        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, config)
         return html.Div([
             dcc.Graph(
                 id='perf-graph',

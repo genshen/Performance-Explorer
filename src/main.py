@@ -2,6 +2,7 @@
 import base64
 import datetime
 import io
+import re
 import time
 
 from dash import Dash, html, dcc, dash_table, ctx
@@ -11,6 +12,7 @@ import plotly.express as px
 import pandas as pd
 
 from speedup_versus import *
+from segment_statistics import *
 
 colors = {
     'background': '#111111',
@@ -90,7 +92,18 @@ app.layout = html.Div(children=[
                         dcc.Dropdown(id='inp_alg_2', placeholder="Select a Column for Algorithm B", style={'margin-bottom': '0.3rem'}),
                     ]),
                 ]),
-                html.P("Plot Style:", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
+                html.B("Segmented statistics:", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
+                html.Div(className = "row", children = [
+                    html.Div(className = "twelve columns", children = [
+                        html.Label("Input segmentations, one number per line. We will compare the performance in each segment of x axis and list results in a table."),
+                        dcc.Textarea(
+                            id='inp-segmented-statistics',
+                            value='',
+                            style={'width': '100%', 'height': 100},
+                        ),
+                    ]),
+                ]),
+                html.B("Plot Style:", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
                 html.Div(className = "row", children = [
                     html.Div(className = "three columns", children = [
                         html.Label("X Axis Title:"),
@@ -134,7 +147,7 @@ app.layout = html.Div(children=[
                     ]),
                 ]),
             ]),
-            html.Button(id='submit-button-state', n_clicks=0, children='Show Plot', className='button-primary', style={'margin': '0.3rem'}), 
+            html.Button(id='submit-button-state', n_clicks=0, children='Analyse and Plot', className='button-primary', style={'margin': '0.3rem'}), 
             html.Button(id='dl-button', n_clicks=0, children='📎 Download pdf', style={'margin': '0.3rem'}), 
             html.Hr(),
             html.Div(id='output-state')
@@ -168,6 +181,20 @@ def parse_contents(contents, filename, date):
             'There was an error processing this file.'
         ])
     return df
+
+def gen_seg_table(df, alg_1: str, alg_2: str, x_axis: str, y_axis: str, mtx_column: str, alg_column: str, segment_conf: [str]):
+    segments_split = re.split(r'[;,\s\n]\s*', segment_conf)
+    segments = []
+    for seg in segments_split:
+        if seg.isdigit():
+            segments.append(int(seg))
+    min_x = df[x_axis].min()
+    max_x = df[x_axis].max()
+    segments.append(min_x)
+    segments.append(max_x + 1) # the end range is not included, thus we plus one to it.
+    segments.sort()
+
+    return statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_column, alg_column, segments)
 
 # set strategy dropdown options
 @app.callback(
@@ -239,10 +266,13 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State('upload-data', 'filename'),
               State('upload-data', 'last_modified'),
               State('header-selector-mtx-name', 'value'),
+              State('header-selector-strategy', 'value'),
               State('header-selector-x_axis', 'value'),
               State('header-selector-y_axis', 'value'),
               State('inp_alg_1', 'value'),
               State('inp_alg_2', 'value'),
+              # segmented statistics
+              State('inp-segmented-statistics', 'value'),
               # plot style:
               State("plot_style_color", 'value'),
               State("plot_style_font_color", 'value'),
@@ -254,7 +284,7 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State("plot_style_width", 'value'),
               State("plot_style_height", 'value'),
             )
-def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, x_axis, y_axis, alg_1, alg_2,
+def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, strategy_key, x_axis, y_axis, alg_1, alg_2, segment_values,
     plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,
     plot_legend_title, plot_width, plot_height):
     if list_of_contents is None:
@@ -265,17 +295,19 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
         fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, config)
+
+        # todo: strategy column
+        seg_table, columns = gen_seg_table(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segment_values)
+
         # render fig
         return html.Div([
             dcc.Graph(
                 id='perf-graph',
                 figure=fig
             ),
-            dash_table.DataTable(
-                df.to_dict('records'),
-                [{'name': i, 'id': i} for i in df.columns]
-            ),
-
+            html.Hr(),
+            html.H4("Segmented Statistics:"),
+            dash_table.DataTable(data = seg_table.to_dict('records'), columns = columns),
             html.Hr(),  # horizontal line
         ])
         

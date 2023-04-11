@@ -11,6 +11,7 @@ import dash
 import plotly.express as px
 import pandas as pd
 
+from best_perf import *
 from speedup_versus import *
 from segment_statistics import *
 from perf_plot import *
@@ -227,7 +228,7 @@ def parse_contents(contents, filename, date):
         ])
     return df
 
-def gen_seg_table(df, alg_1: str, alg_2: str, x_axis: str, y_axis: str, mtx_column: str, alg_column: str, segment_conf: [str]):
+def gen_seg_list(df, x_axis: str, y_axis: str, segment_conf: str):
     segments_split = re.split(r'[;,\s\n]\s*', segment_conf)
     segments = []
     for seg in segments_split:
@@ -238,8 +239,8 @@ def gen_seg_table(df, alg_1: str, alg_2: str, x_axis: str, y_axis: str, mtx_colu
     segments.append(min_x)
     segments.append(max_x + 1) # the end range is not included, thus we plus one to it.
     segments.sort()
+    return segments
 
-    return statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_column, alg_column, segments)
 
 # set strategy dropdown options
 @app.callback(
@@ -344,10 +345,13 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
 
+        segments = gen_seg_list(df, x_axis, y_axis, segment_values) # get segmented integer array for the input string.
+
         if plot_type == 'speedup':
             fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, config)
             # todo: strategy column
-            seg_table, columns = gen_seg_table(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segment_values)
+            seg_table, columns =  statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segments)
+
             # render fig
             return html.Div([
                 dcc.Graph(
@@ -361,11 +365,14 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
             ])
         else:
             fig = gen_plot_performance(df, mtx_name_key, strategy_key, x_axis, y_axis, algs_select, config)
+            seg_table, columns = statistics_best_perf_in_each_segment(df, x_axis, y_axis, mtx_name_key, strategy_key, algs_select, segments)
             return html.Div([
                 dcc.Graph(
                     id='perf-graph-perf',
                     figure=fig
                 ),
+                html.H4("Segmented Statistics:"),
+                dash_table.DataTable(data = seg_table.to_dict('records'), columns = columns),
                 html.Hr(),
             ])
 

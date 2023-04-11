@@ -10,11 +10,9 @@ pio.kaleido.scope.mathjax = None
 from speedup_versus import *
 
 
-def gen_plot_performance(csr_data, keys_csr_mtx, keys_strategy, keys_nnz, keys_flops, config: PlotConfig):
+def gen_plot_performance(csr_data, keys_csr_mtx, keys_strategy, keys_nnz, keys_flops, algs_select: [str], config: PlotConfig):
     keys_hover_data = ['nnz/row', 'mid calc cost', 'mid total cost']
-    # selected_lines = ['adaptive', 'spmv-acc-line', strategy_flat, strategy_line_enh, strategy_vec_row, strategy_hola, strategy_roc_vector, strategy_light, strategy_roc_adaptive]
-    # tab = csr_data[csr_data[keys_strategy].isin(selected_lines)]
-    tab = csr_data
+    tab = csr_data[csr_data[keys_strategy].isin(algs_select)]
 
     fig = px.scatter(tab,
         x=keys_nnz,

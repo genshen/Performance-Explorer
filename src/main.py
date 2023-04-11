@@ -118,6 +118,9 @@ app.layout = html.Div(children=[
                         html.Label("Algorithm Column:"),
                         dcc.Dropdown(id='header-selector-strategy', placeholder="Select a Column for Algorithms", style={'margin-top': '0.3rem'}),
                     ]),
+                ]),
+                html.B("Select algorithms (for speedup plot):", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
+                html.Div(className = "row", children = [
                     html.Div(className = "three columns", children = [
                         html.Label("Algorithm 1:"),
                         dcc.Dropdown(id='inp_alg_1', placeholder="Select a Column for Algorithm A", style={'margin-top': '0.3rem'}),
@@ -125,6 +128,13 @@ app.layout = html.Div(children=[
                     html.Div(className = "three columns", children = [
                         html.Label("Algorithm 2:"),
                         dcc.Dropdown(id='inp_alg_2', placeholder="Select a Column for Algorithm B", style={'margin-bottom': '0.3rem'}),
+                    ]),
+                ]),
+                html.B("Select algorithms (for performance plot):", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
+                html.Div(className = "row", children = [
+                    html.Div(className = "six columns", children = [
+                        html.Label("Algorithms:"),
+                        dcc.Dropdown(id='inp_alg_select', multi=True, placeholder="Select Algorithm for Plotting", style={'margin-top': '0.3rem'}),
                     ]),
                 ]),
                 html.B("Segmented statistics:", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
@@ -233,15 +243,16 @@ def gen_seg_table(df, alg_1: str, alg_2: str, x_axis: str, y_axis: str, mtx_colu
 
 # set strategy dropdown options
 @app.callback(
-    Output('inp_alg_1', 'options'),
-    Output('inp_alg_2', 'options'),
+    Output('inp_alg_1', 'options'), # for speedup plot options
+    Output('inp_alg_2', 'options'), # for speedup plot options
+    Output('inp_alg_select', 'options'), # performance plot options
     Input('header-selector-strategy', 'value'),
     State('upload-data', 'contents'),
     State('upload-data', 'filename'),
     State('upload-data', 'last_modified'))
 def set_algorithm_options(selected_csv_col, list_of_contents, list_of_names, list_of_dates):
     if list_of_contents is None:
-        return [], []
+        return [], [], []
     else:
         # 
         # todo: parse multiple input files.
@@ -251,7 +262,7 @@ def set_algorithm_options(selected_csv_col, list_of_contents, list_of_names, lis
         unique_keys = pd.unique(df[selected_csv_col]).tolist()
         unique_keys.sort()
         options = [{'label': k, 'value': k} for k in unique_keys[:32]] # we allow max 32 different strategy.
-        return options, options
+        return options, options, options
 
 # on buttion click, download the performance figure.
 @app.callback(Output("download-plot", "data"),
@@ -294,7 +305,7 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
         return dcc.send_file(output_path)
     return dash.no_update
 
-# on buttion click, draw the performance figure.
+# on buttion click, draw the speedup/performance figure.
 @app.callback(Output('output-data-upload', 'children'),
               Input('submit-button-state', 'n_clicks'),
               State('upload-data', 'contents'),
@@ -307,6 +318,7 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State('header-selector-y_axis', 'value'),
               State('inp_alg_1', 'value'),
               State('inp_alg_2', 'value'),
+              State('inp_alg_select', 'value'),
               # segmented statistics
               State('inp-segmented-statistics', 'value'),
               # plot style:
@@ -320,7 +332,8 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State("plot_style_width", 'value'),
               State("plot_style_height", 'value'),
             )
-def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, plot_type, mtx_name_key, strategy_key, x_axis, y_axis, alg_1, alg_2, segment_values,
+def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
+    plot_type, mtx_name_key, strategy_key, x_axis, y_axis, alg_1, alg_2, algs_select, segment_values,
     plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,
     plot_legend_title, plot_width, plot_height):
     if list_of_contents is None:
@@ -347,7 +360,7 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, plot
                 html.Hr(),  # horizontal line
             ])
         else:
-            fig = gen_plot_performance(df, mtx_name_key, strategy_key, x_axis, y_axis, config)
+            fig = gen_plot_performance(df, mtx_name_key, strategy_key, x_axis, y_axis, algs_select, config)
             return html.Div([
                 dcc.Graph(
                     id='perf-graph-perf',
@@ -359,12 +372,14 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, plot
 
 @app.callback(Output('inp_alg_1', 'disabled'),
               Output('inp_alg_2', 'disabled'),
+              Output('inp_alg_select', 'disabled'),
+              Output('plot_style_color', 'disabled'),
               Input('plot-type', 'value'))
 def set_plot_type(plot_type):
     if plot_type == None or plot_type == "speedup":
-        return False, False
+        return False, False, True, False
     else:
-        return True, True
+        return True, True, False, True
 
 @app.callback(Output('header-selector-mtx-name', 'options'),
               Output('header-selector-x_axis', 'options'),

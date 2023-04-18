@@ -24,9 +24,9 @@ class PlotConfig:
 # keys_flops = 'GFLOPS(total_time)'
 # keys_hover_data = ['nnz/row', 'mid calc cost', 'mid total cost']
 
-def gen_plot_speedup(csr_data, alg1_name, alg2_name, keys_csr_mtx, keys_nnz, keys_flops, config: PlotConfig):
-    our_data = csr_data[csr_data.strategy == alg1_name]
-    other_data = csr_data[csr_data.strategy == alg2_name]
+def gen_plot_speedup(csr_data, alg1_name, alg2_name, keys_csr_mtx, keys_nnz, keys_flops, alg_column: str, config: PlotConfig):
+    our_data = csr_data[csr_data[alg_column] == alg1_name]
+    other_data = csr_data[csr_data[alg_column] == alg2_name]
 
     merged_data = pd.merge(our_data, other_data, how='inner', on=keys_csr_mtx) # inner join
     sort_merged_data = merged_data.sort_values(by=keys_nnz + '_x')

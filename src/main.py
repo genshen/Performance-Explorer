@@ -252,7 +252,7 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
         df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
-        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, config)
+        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, config)
         output_path = "./fig-plot.pdf" # todo: file conflict if we have more than 1 user.
         fig.write_image(output_path)
         # download fig
@@ -294,7 +294,7 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_
         df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
-        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, config)
+        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, config)
 
         # todo: strategy column
         seg_table, columns = gen_seg_table(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segment_values)

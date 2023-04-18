@@ -65,7 +65,7 @@ def gen_plot_speedup(csr_data, alg1_name, alg2_name, keys_csr_mtx, keys_nnz, key
             fillcolor=config.color,
             # line=dict(color='rgba(0,100,80,0.6)'),
             hoverinfo="skip",
-            showlegend=True,
+            showlegend=config.showlegend,
             mode='none',
             name='Our Adaptive',
         ),

@@ -10,9 +10,12 @@ pio.kaleido.scope.mathjax = None
 from speedup_versus import *
 
 
-def gen_plot_performance(csr_data, keys_csr_mtx, keys_strategy, keys_nnz, keys_flops, algs_select: [str], config: PlotConfig):
+def gen_plot_performance(csr_data, keys_csr_mtx, keys_strategy, keys_nnz, keys_flops, algs_select: [str], drop_rows_by_col_value: str, config: PlotConfig):
     keys_hover_data = ['nnz/row', 'mid calc cost', 'mid total cost']
     tab = csr_data[csr_data[keys_strategy].isin(algs_select)]
+    # drop failed records
+    if drop_rows_by_col_value != None:
+        tab.drop(tab[(tab[drop_rows_by_col_value] > 0)].index, inplace=True)
 
     fig = px.scatter(tab,
         x=keys_nnz,

@@ -8,13 +8,13 @@ percentage = FormatTemplate.percentage(4)
 DEBUG_LOG = False
 
 
-def statistics_best_perf_in_each_segment(df, x_column: str, y_column: str, mtx_column: str, alg_column: str, selected_algs: [str], segments: [int]):
+def statistics_best_perf_in_each_segment(df, x_column: str, y_column: str, mtx_column: str, alg_column: str, selected_algs: [str], segments: [int], drop_rows_by_col_value: str):
     df1 = pd.DataFrame(columns=['algo', 'xstart', 'xend', 'best_count', 'total_count', 'best_ratio'])
     seg_num = len(segments)
     for i in range(seg_num - 1):
         range_start = segments[i]
         range_end = segments[i + 1]
-        best_record = find_best(df, x_column, y_column, mtx_column, alg_column, selected_algs, range_start, range_end)
+        best_record = find_best(df, x_column, y_column, mtx_column, alg_column, selected_algs, drop_rows_by_col_value, range_start, range_end)
         if DEBUG_LOG:
             print_best(best_record)
         # save the results of the best.
@@ -37,11 +37,12 @@ def statistics_best_perf_in_each_segment(df, x_column: str, y_column: str, mtx_c
 
 # find best search the pandas.
 # Find the max performance of each matrix and record the matrix name, algorithm name and performance value.
-def find_best(csr_data, keys_nnz, keys_flops, keys_csr_mtx, keys_strategy, selected_strategies, range_start, range_end):
+def find_best(csr_data, keys_nnz, keys_flops, keys_csr_mtx, keys_strategy, selected_strategies, drop_rows_by_col_value, range_start, range_end):
     # select nnz first
     csr_data = csr_data[(csr_data[keys_nnz] >= range_start) & (csr_data[keys_nnz] < range_end)]
     # ignore cases when verification failed
-    # csr_data.drop(csr_data[(csr_data.failed_count > 0)].index, inplace=True) # todo:
+    if drop_rows_by_col_value != None:
+        csr_data.drop(csr_data[(csr_data[drop_rows_by_col_value] > 0)].index, inplace=True) # todo:
     # select strategies
     df = csr_data[csr_data[keys_strategy].isin(selected_strategies)]
     grouped = df.groupby(keys_csr_mtx) # group by matrix name

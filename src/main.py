@@ -384,8 +384,8 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
                 html.Hr(),  # horizontal line
             ])
         else:
-            fig = gen_plot_performance(df, mtx_name_key, strategy_key, x_axis, y_axis, algs_select, config)
-            seg_table, columns = statistics_best_perf_in_each_segment(df, x_axis, y_axis, mtx_name_key, strategy_key, algs_select, segments)
+            fig = gen_plot_performance(df, mtx_name_key, strategy_key, x_axis, y_axis, algs_select, drop_rows_by_col_value, config)
+            seg_table, columns = statistics_best_perf_in_each_segment(df, x_axis, y_axis, mtx_name_key, strategy_key, algs_select, segments, drop_rows_by_col_value)
             return html.Div([
                 dcc.Graph(
                     id='perf-graph-perf',

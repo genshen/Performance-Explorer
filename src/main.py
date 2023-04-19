@@ -11,8 +11,10 @@ import dash
 import plotly.express as px
 import pandas as pd
 
+from best_perf import *
 from speedup_versus import *
 from segment_statistics import *
+from perf_plot import *
 
 colors = {
     'background': '#111111',
@@ -58,10 +60,44 @@ app.layout = html.Div(children=[
         multiple=True
     ),
     dcc.Loading(
+        id="loading-file-meta",
+        type="default",
+        children=[
+            html.Div(className = "row", children = [
+                html.Div(id="output-file-metadata"),
+            ]),
+        ]
+    ),
+    html.Div(className = "row", children = [
+        html.B("Select Plot Type:"),
+        dcc.RadioItems(
+            id="plot-type",
+            inline=True,
+            options=[
+                {
+                    'label':
+                    [
+                        html.Img(src="/assets/images/speedup-plot.svg", height=20),
+                        html.Span("Speedup Plot", style={'font-size': 15, 'padding-left': 10, "margin-right": 12}),
+                    ],
+                    'value': 'speedup'
+                },
+                {
+                    'label':
+                    [
+                        html.Img(src="/assets/images/perf-plot.svg", height=30),
+                        html.Span("Performance Plot", style={'font-size': 15, 'padding-left': 10, "margin-right": 12}),
+                    ],
+                    'value': 'perf'
+                },
+            ],
+            value='speedup'
+        )
+    ]),
+    dcc.Loading(
         id="loading-1",
         type="default",
         children=[
-            html.Div(id="output-file-metadata"),
             html.Div([
                 html.Hr(),
                 html.Div(className = "row", children = [
@@ -83,6 +119,9 @@ app.layout = html.Div(children=[
                         html.Label("Algorithm Column:"),
                         dcc.Dropdown(id='header-selector-strategy', placeholder="Select a Column for Algorithms", style={'margin-top': '0.3rem'}),
                     ]),
+                ]),
+                html.B("Select algorithms (for speedup plot):", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
+                html.Div(className = "row", children = [
                     html.Div(className = "three columns", children = [
                         html.Label("Algorithm 1:"),
                         dcc.Dropdown(id='inp_alg_1', placeholder="Select a Column for Algorithm A", style={'margin-top': '0.3rem'}),
@@ -90,6 +129,13 @@ app.layout = html.Div(children=[
                     html.Div(className = "three columns", children = [
                         html.Label("Algorithm 2:"),
                         dcc.Dropdown(id='inp_alg_2', placeholder="Select a Column for Algorithm B", style={'margin-bottom': '0.3rem'}),
+                    ]),
+                ]),
+                html.B("Select algorithms (for performance plot):", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
+                html.Div(className = "row", children = [
+                    html.Div(className = "six columns", children = [
+                        html.Label("Algorithms:"),
+                        dcc.Dropdown(id='inp_alg_select', multi=True, placeholder="Select Algorithm for Plotting", style={'margin-top': '0.3rem'}),
                     ]),
                 ]),
                 html.B("Segmented statistics:", style={'margin-top': '0.3rem', "margin-bottom": "0.1rem"}),
@@ -182,7 +228,7 @@ def parse_contents(contents, filename, date):
         ])
     return df
 
-def gen_seg_table(df, alg_1: str, alg_2: str, x_axis: str, y_axis: str, mtx_column: str, alg_column: str, segment_conf: [str]):
+def gen_seg_list(df, x_axis: str, y_axis: str, segment_conf: str):
     segments_split = re.split(r'[;,\s\n]\s*', segment_conf)
     segments = []
     for seg in segments_split:
@@ -193,20 +239,21 @@ def gen_seg_table(df, alg_1: str, alg_2: str, x_axis: str, y_axis: str, mtx_colu
     segments.append(min_x)
     segments.append(max_x + 1) # the end range is not included, thus we plus one to it.
     segments.sort()
+    return segments
 
-    return statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_column, alg_column, segments)
 
 # set strategy dropdown options
 @app.callback(
-    Output('inp_alg_1', 'options'),
-    Output('inp_alg_2', 'options'),
+    Output('inp_alg_1', 'options'), # for speedup plot options
+    Output('inp_alg_2', 'options'), # for speedup plot options
+    Output('inp_alg_select', 'options'), # performance plot options
     Input('header-selector-strategy', 'value'),
     State('upload-data', 'contents'),
     State('upload-data', 'filename'),
     State('upload-data', 'last_modified'))
 def set_algorithm_options(selected_csv_col, list_of_contents, list_of_names, list_of_dates):
     if list_of_contents is None:
-        return [], []
+        return [], [], []
     else:
         # 
         # todo: parse multiple input files.
@@ -216,7 +263,7 @@ def set_algorithm_options(selected_csv_col, list_of_contents, list_of_names, lis
         unique_keys = pd.unique(df[selected_csv_col]).tolist()
         unique_keys.sort()
         options = [{'label': k, 'value': k} for k in unique_keys[:32]] # we allow max 32 different strategy.
-        return options, options
+        return options, options, options
 
 # on buttion click, download the performance figure.
 @app.callback(Output("download-plot", "data"),
@@ -259,18 +306,20 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
         return dcc.send_file(output_path)
     return dash.no_update
 
-# on buttion click, draw the performance figure.
+# on buttion click, draw the speedup/performance figure.
 @app.callback(Output('output-data-upload', 'children'),
               Input('submit-button-state', 'n_clicks'),
               State('upload-data', 'contents'),
               State('upload-data', 'filename'),
               State('upload-data', 'last_modified'),
+              State('plot-type', 'value'),
               State('header-selector-mtx-name', 'value'),
               State('header-selector-strategy', 'value'),
               State('header-selector-x_axis', 'value'),
               State('header-selector-y_axis', 'value'),
               State('inp_alg_1', 'value'),
               State('inp_alg_2', 'value'),
+              State('inp_alg_select', 'value'),
               # segmented statistics
               State('inp-segmented-statistics', 'value'),
               # plot style:
@@ -284,7 +333,8 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State("plot_style_width", 'value'),
               State("plot_style_height", 'value'),
             )
-def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, strategy_key, x_axis, y_axis, alg_1, alg_2, segment_values,
+def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
+    plot_type, mtx_name_key, strategy_key, x_axis, y_axis, alg_1, alg_2, algs_select, segment_values,
     plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,
     plot_legend_title, plot_width, plot_height):
     if list_of_contents is None:
@@ -294,23 +344,49 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_
         df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
-        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, config)
 
-        # todo: strategy column
-        seg_table, columns = gen_seg_table(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segment_values)
+        segments = gen_seg_list(df, x_axis, y_axis, segment_values) # get segmented integer array for the input string.
 
-        # render fig
-        return html.Div([
-            dcc.Graph(
-                id='perf-graph',
-                figure=fig
-            ),
-            html.Hr(),
-            html.H4("Segmented Statistics:"),
-            dash_table.DataTable(data = seg_table.to_dict('records'), columns = columns),
-            html.Hr(),  # horizontal line
-        ])
-        
+        if plot_type == 'speedup':
+            fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, config)
+            # todo: strategy column
+            seg_table, columns =  statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segments)
+
+            # render fig
+            return html.Div([
+                dcc.Graph(
+                    id='perf-graph-speedup',
+                    figure=fig
+                ),
+                html.Hr(),
+                html.H4("Segmented Statistics:"),
+                dash_table.DataTable(data = seg_table.to_dict('records'), columns = columns),
+                html.Hr(),  # horizontal line
+            ])
+        else:
+            fig = gen_plot_performance(df, mtx_name_key, strategy_key, x_axis, y_axis, algs_select, config)
+            seg_table, columns = statistics_best_perf_in_each_segment(df, x_axis, y_axis, mtx_name_key, strategy_key, algs_select, segments)
+            return html.Div([
+                dcc.Graph(
+                    id='perf-graph-perf',
+                    figure=fig
+                ),
+                html.H4("Segmented Statistics:"),
+                dash_table.DataTable(data = seg_table.to_dict('records'), columns = columns),
+                html.Hr(),
+            ])
+
+
+@app.callback(Output('inp_alg_1', 'disabled'),
+              Output('inp_alg_2', 'disabled'),
+              Output('inp_alg_select', 'disabled'),
+              Output('plot_style_color', 'disabled'),
+              Input('plot-type', 'value'))
+def set_plot_type(plot_type):
+    if plot_type == None or plot_type == "speedup":
+        return False, False, True, False
+    else:
+        return True, True, False, True
 
 @app.callback(Output('header-selector-mtx-name', 'options'),
               Output('header-selector-x_axis', 'options'),

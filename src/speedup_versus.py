@@ -24,11 +24,13 @@ class PlotConfig:
 # keys_flops = 'GFLOPS(total_time)'
 # keys_hover_data = ['nnz/row', 'mid calc cost', 'mid total cost']
 
-def gen_plot_speedup(csr_data, alg1_name, alg2_name, keys_csr_mtx, keys_nnz, keys_flops, alg_column: str, config: PlotConfig):
+def gen_plot_speedup(csr_data, alg1_name, alg2_name, keys_csr_mtx, keys_nnz, keys_flops, alg_column: str, drop_row_by_col_value, config: PlotConfig):
     our_data = csr_data[csr_data[alg_column] == alg1_name]
     other_data = csr_data[csr_data[alg_column] == alg2_name]
 
     merged_data = pd.merge(our_data, other_data, how='inner', on=keys_csr_mtx) # inner join
+    if drop_row_by_col_value != None:
+        merged_data.drop(merged_data[(merged_data[drop_row_by_col_value + '_x'] > 0) | (merged_data[drop_row_by_col_value + '_y'] > 0)].index, inplace=True)
     sort_merged_data = merged_data.sort_values(by=keys_nnz + '_x')
 
     # get nnz, flat flops, hola flops.

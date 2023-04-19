@@ -16,6 +16,8 @@ from speedup_versus import *
 from segment_statistics import *
 from perf_plot import *
 
+DROP_DEFAULT_NO_DROP = "default"
+
 colors = {
     'background': '#111111',
     'text': '#0969da'
@@ -112,6 +114,10 @@ app.layout = html.Div(children=[
                     html.Div(className = "three columns", children = [
                         html.Label("Y Axis Column:"),
                         dcc.Dropdown(id='header-selector-y_axis', placeholder="Select a Column for y axis", style={'margin-top': '0.3rem'}),
+                    ]),
+                    html.Div(className = "three columns", children = [
+                        html.Label("Drop Tag Column:"),
+                        dcc.Dropdown(id='header-selector-drop', placeholder="Select a Column for Dropping", style={'margin-top': '0.3rem'}),
                     ]),
                 ]),
                 html.Div(className = "row", children = [
@@ -228,7 +234,7 @@ def parse_contents(contents, filename, date):
         ])
     return df
 
-def gen_seg_list(df, x_axis: str, y_axis: str, segment_conf: str):
+def gen_seg_list(df, x_axis: str, y_axis: str, segment_conf: [str]):
     segments_split = re.split(r'[;,\s\n]\s*', segment_conf)
     segments = []
     for seg in segments_split:
@@ -264,6 +270,15 @@ def set_algorithm_options(selected_csv_col, list_of_contents, list_of_names, lis
         unique_keys.sort()
         options = [{'label': k, 'value': k} for k in unique_keys[:32]] # we allow max 32 different strategy.
         return options, options, options
+
+# set default value for drop dropdown
+@app.callback(
+    Output('header-selector-drop', 'value'),
+    Input('header-selector-drop', 'options'))
+def set_cities_value(available_options):
+    if available_options == None or len(available_options) == 0:
+        return None
+    return available_options[0]['value']
 
 # on buttion click, download the performance figure.
 @app.callback(Output("download-plot", "data"),
@@ -317,6 +332,7 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State('header-selector-strategy', 'value'),
               State('header-selector-x_axis', 'value'),
               State('header-selector-y_axis', 'value'),
+              State('header-selector-drop', 'value'),
               State('inp_alg_1', 'value'),
               State('inp_alg_2', 'value'),
               State('inp_alg_select', 'value'),
@@ -334,7 +350,7 @@ def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_k
               State("plot_style_height", 'value'),
             )
 def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
-    plot_type, mtx_name_key, strategy_key, x_axis, y_axis, alg_1, alg_2, algs_select, segment_values,
+    plot_type, mtx_name_key, strategy_key, x_axis, y_axis, drop_col_key, alg_1, alg_2, algs_select, segment_values,
     plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,
     plot_legend_title, plot_width, plot_height):
     if list_of_contents is None:
@@ -342,15 +358,19 @@ def update_output(n_clicks, list_of_contents, list_of_names, list_of_dates,
     else:
         # todo: parse multiple input files.
         df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
+
+        drop_rows_by_col_value = None
+        if drop_col_key != None and drop_col_key != "" and drop_col_key != DROP_DEFAULT_NO_DROP:
+            drop_rows_by_col_value = drop_col_key
+
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
 
         segments = gen_seg_list(df, x_axis, y_axis, segment_values) # get segmented integer array for the input string.
 
         if plot_type == 'speedup':
-            fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, config)
-            # todo: strategy column
-            seg_table, columns =  statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segments)
+            fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, drop_rows_by_col_value, config)
+            seg_table, columns =  statistics_in_each_segment(df, alg_1, alg_2, x_axis, y_axis, mtx_name_key, strategy_key, segments, drop_rows_by_col_value)
 
             # render fig
             return html.Div([
@@ -391,6 +411,7 @@ def set_plot_type(plot_type):
 @app.callback(Output('header-selector-mtx-name', 'options'),
               Output('header-selector-x_axis', 'options'),
               Output('header-selector-y_axis', 'options'),
+              Output('header-selector-drop', 'options'),
               Output('header-selector-strategy', 'options'),
               Output('output-file-metadata', 'children'),
               Input('upload-data', 'contents'),
@@ -403,9 +424,12 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
         filename = list_of_names[0] # todo: more files?
         file_date = list_of_dates[0]
         file_meta_component = html.Div([html.P(filename), html.P(datetime.datetime.fromtimestamp(file_date))])
-        return dropdown_header, dropdown_header, dropdown_header, dropdown_header, file_meta_component
+        drop_options = [{"label": "Default (No Drop)", "value": DROP_DEFAULT_NO_DROP}] + dropdown_header
+        return dropdown_header, dropdown_header, dropdown_header, drop_options, dropdown_header, file_meta_component
     else:
-        return [], [], [], [], None
+        return [], [], [], [], [], None
+
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)

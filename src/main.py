@@ -287,8 +287,10 @@ def set_cities_value(available_options):
               State('upload-data', 'filename'),
               State('upload-data', 'last_modified'),
               State('header-selector-mtx-name', 'value'),
+              State('header-selector-strategy', 'value'),
               State('header-selector-x_axis', 'value'),
               State('header-selector-y_axis', 'value'),
+              State('header-selector-drop', 'value'),
               State('inp_alg_1', 'value'),
               State('inp_alg_2', 'value'),
               # plot style:
@@ -302,19 +304,22 @@ def set_cities_value(available_options):
               State("plot_style_width", 'value'),
               State("plot_style_height", 'value'),
             )
-def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, x_axis, y_axis, alg_1, alg_2,
+def dl_plot(n_clicks, list_of_contents, list_of_names, list_of_dates, mtx_name_key, strategy_key, x_axis, y_axis, drop_col_key, alg_1, alg_2,
     plot_color, plot_font_color, plot_font_size, plot_xaxis_title, plot_yaxis_title, plot_showlegend,
     plot_legend_title, plot_width, plot_height):
     button_id = ctx.triggered_id
     if button_id == None:
         return dash.no_update
 
+    if drop_col_key == DROP_DEFAULT_NO_DROP:
+        drop_col_key = None
+
     if button_id == "dl-button":
         # todo: parse multiple input files.
         df = parse_contents(list_of_contents[0], list_of_names[0], list_of_dates[0])
         conf_showlegend = True if plot_showlegend == "yes" else False
         config = PlotConfig(plot_color, plot_font_color, int(plot_font_size), plot_xaxis_title, plot_yaxis_title, conf_showlegend, plot_legend_title, int(plot_width), int(plot_height))
-        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, config)
+        fig = gen_plot_speedup(df, alg_1, alg_2, mtx_name_key, x_axis, y_axis, strategy_key, drop_col_key, config)
         output_path = "./fig-plot.pdf" # todo: file conflict if we have more than 1 user.
         fig.write_image(output_path)
         # download fig

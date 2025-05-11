@@ -5,12 +5,14 @@ description = "show performance plot"
 authors = ["genshen <genshenchu@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.9"
 pandas = "^1.5.3"
 dash = "^2.9.2"
 kaleido = "0.2.1"
+numpy = "1.25.1"
 
 
 [build-system]

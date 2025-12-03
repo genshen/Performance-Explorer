@@ -1,9 +1,11 @@
 # Performance-Explorer
 
 ## How to use
+install [uv](https://docs.astral.sh/uv/) package manager.
 ```bash
-poetry install
-poetry run python3 src/main.py
+uv sync
+uv venv --seed
+uv run src/main.py
 ```
 
 ## Screenshot
